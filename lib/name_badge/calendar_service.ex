@@ -124,10 +124,22 @@ defmodule NameBadge.CalendarService do
   end
 
   defp normalize_event(%ICalendar.Event{} = event) do
+    # In iCal, all-day events use DATE values where DTEND is exclusive
+    # (e.g. DTSTART=2026-02-21, DTEND=2026-02-22 means only the 21st).
+    # We subtract one day from dtend to make the range inclusive.
+    dtend =
+      case {event.dtstart, event.dtend} do
+        {%Date{}, %Date{} = end_date} ->
+          end_date |> Date.add(-1) |> to_datetime()
+
+        {_, raw_end} ->
+          to_datetime(raw_end)
+      end
+
     %{
       summary: event.summary || "(No title)",
       dtstart: to_datetime(event.dtstart),
-      dtend: to_datetime(event.dtend),
+      dtend: dtend,
       description: event.description,
       location: event.location
     }
