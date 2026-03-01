@@ -17,7 +17,9 @@ defmodule NameBadge.Application do
         # Starts a worker by calling: NameBadge.Worker.start_link(arg)
         # {NameBadge.Worker, arg},
         {Registry, name: NameBadge.Registry, keys: :duplicate},
-        NameBadge.Socket
+        NameBadge.Socket,
+        # Memory monitoring for NIF leak detection (logs every 30s, warns on >10MB growth)
+        {NameBadge.Telemetry.MemoryMonitor, interval: 30_000}
       ] ++ target_children(@target)
 
     # See https://hexdocs.pm/elixir/Supervisor.html
@@ -28,6 +30,8 @@ defmodule NameBadge.Application do
 
   # List all child processes to be supervised
   defp target_children(:host) do
+    port = phoenix_port()
+
     [
       {Phoenix.PubSub, name: NameBadge.PubSub},
       NameBadge.DisplayMock,
@@ -35,8 +39,16 @@ defmodule NameBadge.Application do
       NameBadge.TimezoneService,
       NameBadge.Weather,
       NameBadge.ScreenManager,
-      {PhoenixPlayground, live: NameBadge.PreviewLive}
+      {PhoenixPlayground, live: NameBadge.PreviewLive, port: port}
     ] ++ calendar_children()
+  end
+
+  # Get port from PORT env var, defaults to 4000
+  defp phoenix_port do
+    case System.get_env("PORT") do
+      nil -> 4000
+      port_str -> String.to_integer(port_str)
+    end
   end
 
   defp target_children(_target) do
