@@ -20,6 +20,48 @@ defmodule NameBadge.Screen.NameBadge do
     """
   end
 
+  def render(%{config: config, show_qr?: true, qr_code: qr_code}) do
+    Logger.info("name badge config is: #{inspect(config)}")
+
+    greeting_element =
+      case config["greeting"] do
+        greeting when greeting == "" or is_nil(greeting) ->
+          ""
+
+        greeting when is_binary(greeting) ->
+          "text(font: \"#{@font_name}\", size: #{config["greeting_size"] || @greeting_size_default}pt)[#{greeting}],"
+      end
+
+    company_element =
+      case config["company"] do
+        company when company == "" or is_nil(company) ->
+          ""
+
+        company when is_binary(company) ->
+          "text(font: \"#{@font_name}\", size: #{config["company_size"] || @company_size_default}pt)[#{company}],"
+      end
+
+    qr_element =
+      case qr_code do
+        qr when is_binary(qr) and qr != "" ->
+          "#image(width: 45%, format: \"svg\", bytes(\"#{qr}\"))"
+
+        _ ->
+          "text(font: \"#{@font_name}\", size: 16pt)[No QR link configured]"
+      end
+
+    """
+    #place(center + horizon,
+      stack(dir: ttb, spacing: #{config["spacing"] || 8}pt,
+        #{qr_element},
+        #{greeting_element}
+        text(font: "#{@font_name}", size: #{config["name_size"] || @name_size_default}pt, "#{config["first_name"]} #{config["last_name"]}"),
+        #{company_element}
+      )
+    );
+    """
+  end
+
   def render(%{config: config}) do
     Logger.info("name badge config is: #{inspect(config)}")
 
@@ -59,7 +101,23 @@ defmodule NameBadge.Screen.NameBadge do
 
     case config do
       %{"first_name" => _first_name, "last_name" => _last_name} ->
-        {:ok, assign(screen, config: config, valid?: true)}
+        qr_link = Map.get(config, "qr_link")
+
+        qr_code =
+          if is_binary(qr_link) and qr_link != "" do
+            qr_code_for_url(String.trim(qr_link))
+          else
+            nil
+          end
+
+        {:ok,
+         assign(screen,
+           config: config,
+           qr_code: qr_code,
+           show_qr?: false,
+           valid?: true,
+           button_hints: %{a: "Toggle QR"}
+         )}
 
       _config ->
         {:ok, assign(screen, valid?: false, button_hints: %{a: "Set up WiFi", b: "View QR code"})}
@@ -70,7 +128,7 @@ defmodule NameBadge.Screen.NameBadge do
   def handle_button(:button_1, :single_press, screen) do
     cond do
       screen.assigns.valid? ->
-        {:noreply, screen}
+        {:noreply, assign(screen, show_qr?: !Map.get(screen.assigns, :show_qr?, false))}
 
       true ->
         {:noreply, navigate(screen, NameBadge.Screen.Settings.WiFi)}
@@ -88,4 +146,15 @@ defmodule NameBadge.Screen.NameBadge do
   end
 
   def handle_button(_, _, screen), do: {:noreply, screen}
+
+  defp qr_code_for_url(url) do
+    with {:ok, code} <- QRCode.create(url),
+         {:ok, qr_code_svg} <- QRCode.render(code) do
+      qr_code_svg
+      |> String.replace("\\", "\\\\")
+      |> String.replace("\"", "\\\"")
+    else
+      _ -> nil
+    end
+  end
 end
