@@ -25,8 +25,9 @@ config :nerves, :firmware,
 config :nerves, source_date_epoch: "1753482945"
 
 device_setup_url = "goatmire.fly.dev"
-
 config :name_badge, :device_setup_url, device_setup_url
+
+config :name_badge, :qr_link, System.get_env("QR_LINK", "https://nervesmeetup.eu")
 
 # Optional: Weather location configuration
 # If not set, location will be determined via IP geolocation

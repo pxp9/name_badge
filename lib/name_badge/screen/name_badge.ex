@@ -116,11 +116,11 @@ defmodule NameBadge.Screen.NameBadge do
            qr_code: qr_code,
            show_qr?: false,
            valid?: true,
-           button_hints: %{a: "Toggle QR"}
+           button_hints: %{b: "Show QR"}
          )}
 
       _config ->
-        {:ok, assign(screen, valid?: false, button_hints: %{a: "Set up WiFi", b: "View QR code"})}
+        {:ok, assign(screen, valid?: false, button_hints: %{a: "Set up WiFi", b: "Show QR"})}
     end
   end
 
@@ -138,7 +138,7 @@ defmodule NameBadge.Screen.NameBadge do
   def handle_button(:button_2, :single_press, screen) do
     cond do
       screen.assigns.valid? ->
-        {:noreply, screen}
+        {:noreply, navigate(screen, NameBadge.Screen.PromotionalQRCode)}
 
       true ->
         {:noreply, navigate(screen, NameBadge.Screen.Settings.QrCode)}
